@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Device Control</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0f172a;
+    }
+
+    #connectBtn {
+      width: min(90vw, 420px);
+      height: min(35vh, 180px);
+      font-size: clamp(20px, 4vw, 36px);
+      font-weight: 700;
+      border: none;
+      border-radius: 24px;
+      background: #38bdf8;
+      color: #0b1220;
+      cursor: pointer;
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.35);
+    }
+
+    #connectBtn:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <button id="connectBtn">Connect Device</button>
+
+  <!-- Додайте нові звуки тут: <audio id="sound3" src="sound3.mp3" preload="auto"></audio> -->
+  <audio id="sound1" src="sound1.mp3" preload="auto"></audio>
+  <audio id="sound2" src="sound2.mp3" preload="auto"></audio>
+
+  <script>
+    const connectBtn = document.getElementById('connectBtn');
+    const sounds = {
+      sound1: document.getElementById('sound1'),
+      sound2: document.getElementById('sound2'),
+    };
+
+    let socket;
+
+    function generateDeviceId() {
+      return `device-${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    function getDeviceId() {
+      const stored = sessionStorage.getItem('deviceId');
+      if (stored) {
+        return stored;
+      }
+      const newId = generateDeviceId();
+      sessionStorage.setItem('deviceId', newId);
+      return newId;
+    }
+
+    connectBtn.addEventListener('click', () => {
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const wsUrl = `${wsProtocol}://${window.location.host}`;
+      const deviceId = getDeviceId();
+
+      socket = new WebSocket(wsUrl);
+      connectBtn.disabled = true;
+
+      socket.addEventListener('open', () => {
+        socket.send(JSON.stringify({ type: 'register', deviceId }));
+      });
+
+      socket.addEventListener('close', () => {
+        connectBtn.disabled = false;
+      });
+
+      socket.addEventListener('message', (event) => {
+        const command = event.data;
+        const audio = sounds[command];
+
+        if (audio) {
+          audio.currentTime = 0;
+          audio.play().catch((error) => {
+            console.error('Failed to play sound:', error);
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
