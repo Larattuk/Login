@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connect device</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        min-height: 100vh;
+        align-items: center;
+        justify-content: center;
+        background: #0f172a;
+        color: #f8fafc;
+      }
+      button {
+        background: #38bdf8;
+        color: #0f172a;
+        border: none;
+        padding: 18px 32px;
+        font-size: 1.1rem;
+        border-radius: 999px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="connect-btn">Connect device</button>
+
+    <script>
+      const connectBtn = document.getElementById("connect-btn");
+      let socket;
+
+      const connectSocket = () => {
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        socket = new WebSocket(`${protocol}://${window.location.host}`);
+
+        socket.addEventListener("open", () => {
+          connectBtn.disabled = true;
+          connectBtn.textContent = "Device connected";
+        });
+
+        socket.addEventListener("message", (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "play" && data.url) {
+              const audio = new Audio(data.url);
+              audio.play();
+            }
+          } catch (error) {
+            console.error("Invalid message", error);
+          }
+        });
+
+        socket.addEventListener("close", () => {
+          connectBtn.disabled = false;
+          connectBtn.textContent = "Connect device";
+        });
+      };
+
+      connectBtn.addEventListener("click", () => {
+        if (!socket || socket.readyState === WebSocket.CLOSED) {
+          connectSocket();
+        }
+      });
+    </script>
+  </body>
+</html>

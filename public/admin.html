@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Console</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 24px;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      button {
+        margin-right: 8px;
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: 1px solid #94a3b8;
+        background: #fff;
+        cursor: pointer;
+      }
+      .panel {
+        margin-top: 20px;
+        padding: 16px;
+        border: 1px solid #cbd5f5;
+        border-radius: 8px;
+        background: #fff;
+      }
+      pre {
+        background: #0f172a;
+        color: #f8fafc;
+        padding: 12px;
+        border-radius: 8px;
+        max-height: 300px;
+        overflow: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Admin Console</h1>
+        <p>Device connection and Telegram bot status.</p>
+      </div>
+      <div>
+        <button id="sync-btn">Force Webhook Sync</button>
+        <button id="status-btn">Webhook status check</button>
+      </div>
+    </header>
+
+    <section class="panel">
+      <h2>Connection Status</h2>
+      <div id="connection-status">Loading...</div>
+    </section>
+
+    <section class="panel">
+      <h2>Webhook Status</h2>
+      <pre id="webhook-status">No data yet.</pre>
+    </section>
+
+    <section class="panel">
+      <h2>Live Bot Events / Debug Console</h2>
+      <pre id="debug-console">Waiting for updates...</pre>
+    </section>
+
+    <script>
+      const connectionStatus = document.getElementById("connection-status");
+      const webhookStatus = document.getElementById("webhook-status");
+      const debugConsole = document.getElementById("debug-console");
+
+      const fetchConnectionStatus = async () => {
+        const response = await fetch("/admin/status");
+        const data = await response.json();
+        connectionStatus.textContent = data.connected
+          ? `Device connected since ${data.connectedAt}`
+          : "No device connected";
+      };
+
+      const fetchWebhookStatus = async () => {
+        const response = await fetch("/admin/webhook-status");
+        const data = await response.json();
+        webhookStatus.textContent = JSON.stringify(data, null, 2);
+      };
+
+      const fetchDebugEvents = async () => {
+        const response = await fetch("/admin/events");
+        const data = await response.json();
+        debugConsole.textContent = JSON.stringify(data.updates, null, 2);
+      };
+
+      document.getElementById("sync-btn").addEventListener("click", async () => {
+        const response = await fetch("/admin/force-webhook-sync", {
+          method: "POST",
+        });
+        const data = await response.json();
+        webhookStatus.textContent = JSON.stringify(data, null, 2);
+      });
+
+      document.getElementById("status-btn").addEventListener("click", fetchWebhookStatus);
+
+      fetchConnectionStatus();
+      fetchWebhookStatus();
+      fetchDebugEvents();
+      setInterval(fetchConnectionStatus, 5000);
+      setInterval(fetchDebugEvents, 3000);
+    </script>
+  </body>
+</html>
