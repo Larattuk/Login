@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connect device</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        min-height: 100vh;
+        background: radial-gradient(circle at top, #1e293b, #0f172a 60%);
+        color: #f8fafc;
+      }
+      .screen {
+        min-height: 100vh;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      #connect-btn {
+        flex: 1;
+        width: 100%;
+        border: none;
+        background: transparent;
+        color: #f8fafc;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      #connect-btn:disabled {
+        opacity: 0.75;
+      }
+      .inner {
+        width: min(90vw, 540px);
+        text-align: center;
+      }
+      .wifi {
+        font-size: clamp(5rem, 18vw, 9rem);
+        line-height: 1;
+        margin-bottom: 16px;
+      }
+      .title {
+        font-size: clamp(2rem, 7vw, 3rem);
+        font-weight: 700;
+      }
+      .subtitle {
+        margin-top: 10px;
+        color: #cbd5e1;
+        font-size: clamp(1rem, 3.6vw, 1.25rem);
+      }
+      #status {
+        position: fixed;
+        left: 50%;
+        bottom: 20px;
+        transform: translateX(-50%);
+        background: rgba(15, 23, 42, 0.65);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        color: #bae6fd;
+        padding: 10px 14px;
+        border-radius: 999px;
+        font-size: 0.9rem;
+        max-width: 92vw;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="screen">
+      <button id="connect-btn">
+        <div class="inner">
+          <div class="wifi">📶</div>
+          <div class="title">Підключитися</div>
+          <div class="subtitle">Натисни, щоб з'єднати пристрій</div>
+        </div>
+      </button>
+      <div id="status">Не підключено</div>
+    </div>
+
+    <script>
+      const connectBtn = document.getElementById("connect-btn");
+      const statusEl = document.getElementById("status");
+      let socket;
+      let wakeLock;
+      const audioEl = new Audio();
+      audioEl.preload = "auto";
+      audioEl.setAttribute("playsinline", "true");
+
+      const updateStatus = (text) => {
+        statusEl.textContent = text;
+      };
+
+      const detectDeviceName = () => {
+        const platform = navigator.userAgentData?.platform || navigator.platform || "Unknown OS";
+        const ua = navigator.userAgent || "";
+
+        if (/iPhone/i.test(ua)) {
+          return "iPhone";
+        }
+        if (/iPad/i.test(ua)) {
+          return "iPad";
+        }
+        if (/Android/i.test(ua)) {
+          return "Android Phone";
+        }
+        if (/Macintosh|Mac OS X/i.test(ua)) {
+          return "Mac";
+        }
+        if (/Windows/i.test(ua)) {
+          return "Windows PC";
+        }
+
+        return String(platform).trim() || "Unknown device";
+      };
+
+      const requestWakeLock = async () => {
+        if (!("wakeLock" in navigator)) {
+          return;
+        }
+        try {
+          wakeLock = await navigator.wakeLock.request("screen");
+          wakeLock.addEventListener("release", () => {
+            updateStatus("Wake lock released. In background audio can stop.");
+          });
+        } catch (error) {
+          console.warn("Wake lock unavailable", error);
+        }
+      };
+
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible" && socket?.readyState === WebSocket.OPEN) {
+          requestWakeLock();
+        }
+      });
+
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.playbackState = "none";
+      }
+
+      const connectSocket = () => {
+        const name = detectDeviceName();
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        const params = new URLSearchParams({ device: name });
+        socket = new WebSocket(`${protocol}://${window.location.host}?${params.toString()}`);
+
+        socket.addEventListener("open", async () => {
+          connectBtn.disabled = true;
+          updateStatus(`Підключено як: ${name}`);
+          await requestWakeLock();
+        });
+
+        socket.addEventListener("message", async (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "play" && data.url) {
+              audioEl.src = data.url;
+              await audioEl.play();
+              if ("mediaSession" in navigator) {
+                navigator.mediaSession.playbackState = "playing";
+              }
+            }
+          } catch (error) {
+            console.error("Invalid message", error);
+          }
+        });
+
+        socket.addEventListener("close", () => {
+          connectBtn.disabled = false;
+          updateStatus("Відключено");
+          if ("mediaSession" in navigator) {
+            navigator.mediaSession.playbackState = "none";
+          }
+        });
+      };
+
+      connectBtn.addEventListener("click", () => {
+        if (!socket || socket.readyState === WebSocket.CLOSED) {
+          connectSocket();
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "telegram-soundboard",
+  "version": "1.0.0",
+  "description": "Single-device Telegram-controlled soundboard with WebSocket client",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-telegram-bot-api": "^0.66.0",
+    "ws": "^8.17.0"
+  }
+}
